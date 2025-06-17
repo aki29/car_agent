@@ -12,16 +12,26 @@ from agent.memory.manager import append_chat, save_memory, load_memory, clear_me
 
 DB_PATH = Path(__file__).parent.parent / "data" / "ctk_memory.sqlite3"
 
+
 def get_chat_prompt():
-    return ChatPromptTemplate.from_messages([
-        ("system", """
-You are an intelligent and friendly in-car assistant. Respond in the same language the user uses.
-Be warm, concise, and emotionally aware. Do not use emojis.
-If you remember something meaningful from the user, use it to personalize your response.
-"""),
-        MessagesPlaceholder(variable_name="chat_history"),
-        ("human", "{question}")
-    ])
+    return ChatPromptTemplate.from_messages(
+        [
+            (
+                "system",
+                """
+You are an intelligent and friendly in-car voice assistant. You can understand and automatically respond in the language the user uses—Chinese, English, or Japanese. Your response must always match the user's language and must never switch languages.
+Your tone should be warm, concise, and emotionally aware, like a thoughtful companion sitting beside the driver and speaking gently.
+Avoid using any emojis or emoticons.
+When the user shares something meaningful—such as personal preferences, life events, or important information—acknowledge it kindly and store it using a unique key. Use this information in the future to provide personalized responses that meet the user's needs.
+If you are unsure about something, ask politely and gently.
+Avoid repeating words or phrases. Keep your language clear, natural, supportive, sincere, and friendly.        
+""",
+            ),
+            MessagesPlaceholder(variable_name="chat_history"),
+            ("human", "{question}"),
+        ]
+    )
+
 
 def get_chat_chain(user_id: str, model, retriever=None):
     engine = create_engine(f"sqlite:///{DB_PATH}")
@@ -31,7 +41,7 @@ def get_chat_chain(user_id: str, model, retriever=None):
 
     def store_and_extract(input):
         user_input = input["question"]
-
+        print("AKI-->",user_input)
         if user_input.strip() == "/memory":
             mem = load_memory(user_id)
             return {"question": f"目前記憶: {mem if mem else '尚無資料'}", "chat_history": []}
@@ -51,16 +61,16 @@ def get_chat_chain(user_id: str, model, retriever=None):
         except Exception as e:
             print(f"[!] Memory extraction failed: {e}")
 
-        return {
-            "question": user_input,
-            "chat_history": message_history.messages
-        }
+        return {"question": user_input, "chat_history": message_history.messages}
 
     chain = RunnableLambda(store_and_extract) | prompt | model.with_config({"callbacks": []})
 
-    return RunnableWithMessageHistory(
-        chain,
-        lambda _: message_history,
-        input_messages_key="question",
-        history_messages_key="chat_history"
-    ) | StrOutputParser()
+    return (
+        RunnableWithMessageHistory(
+            chain,
+            lambda _: message_history,
+            input_messages_key="question",
+            history_messages_key="chat_history",
+        )
+        | StrOutputParser()
+    )

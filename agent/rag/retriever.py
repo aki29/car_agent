@@ -4,7 +4,6 @@ from agent.rag.loader import load_documents
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
 from langchain_ollama import OllamaEmbeddings
-from main import persist_directory
 
 VECTOR_DB_PATH = Path(__file__).parent.parent / "data" / "vectorstore"
 
